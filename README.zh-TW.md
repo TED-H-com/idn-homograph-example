@@ -4,7 +4,7 @@
 
 一個單頁、中英雙語的教學 demo，用來向同事示範 IDN 同形異義字攻擊怎麼把假網域藏在熟悉的拼法後面。
 
-**專案介紹頁：** https://teddashh.github.io/idn-homograph-example/?lang=zh-TW
+**專案介紹頁：** https://ted-h-com.github.io/idn-homograph-example/?lang=zh-TW
 
 **線上 demo：** https://project-9ogsa.vercel.app
 
@@ -17,7 +17,7 @@
 直接用瀏覽器打開 `index.html` 就能看，或啟動一個簡單的本機伺服器：
 
 ```bash
-git clone https://github.com/teddashh/idn-homograph-example
+git clone https://github.com/TED-H-com/idn-homograph-example
 cd idn-homograph-example
 python3 -m http.server 8000
 # 然後打開 http://localhost:8000

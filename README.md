@@ -4,7 +4,7 @@
 
 A single-page, bilingual demo for showing coworkers how an IDN homograph attack hides a fake domain behind a familiar spelling.
 
-**Project page:** https://teddashh.github.io/idn-homograph-example/
+**Project page:** https://ted-h-com.github.io/idn-homograph-example/
 
 **Live demo:** https://project-9ogsa.vercel.app
 
@@ -17,7 +17,7 @@ The example brand, Example Bank, is fictional. Its real domain, `examplebank.exa
 Open `index.html` in a browser, or serve the folder:
 
 ```bash
-git clone https://github.com/teddashh/idn-homograph-example
+git clone https://github.com/TED-H-com/idn-homograph-example
 cd idn-homograph-example
 python3 -m http.server 8000
 # then open http://localhost:8000

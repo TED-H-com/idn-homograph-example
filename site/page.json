@@ -1,5 +1,5 @@
 {
-  "repo": "teddashh/idn-homograph-example",
+  "repo": "TED-H-com/idn-homograph-example",
   "slug": "idn-homograph-example",
   "name": "idn-homograph-example",
   "mark": "IDN",
@@ -49,7 +49,7 @@
       }
     },
     "secondary": {
-      "href": "https://github.com/teddashh/idn-homograph-example",
+      "href": "https://github.com/TED-H-com/idn-homograph-example",
       "label": {
         "en": "View source",
         "zh": "查看原始碼"
@@ -322,14 +322,14 @@
       "zh": "執行"
     },
     "primary": {
-      "href": "https://github.com/teddashh/idn-homograph-example/blob/main/README.md",
+      "href": "https://github.com/TED-H-com/idn-homograph-example/blob/main/README.md",
       "label": {
         "en": "Deployment guide",
         "zh": "部署說明（英文）"
       }
     },
     "secondary": {
-      "href": "https://github.com/teddashh/idn-homograph-example/blob/main/README.zh-TW.md",
+      "href": "https://github.com/TED-H-com/idn-homograph-example/blob/main/README.zh-TW.md",
       "label": {
         "en": "中文說明",
         "zh": "部署說明（中文）"
@@ -469,7 +469,7 @@
       }
     },
     {
-      "href": "https://github.com/teddashh/idn-homograph-example/blob/main/README.zh-TW.md",
+      "href": "https://github.com/TED-H-com/idn-homograph-example/blob/main/README.zh-TW.md",
       "label": {
         "en": "中文 README",
         "zh": "中文 README"
