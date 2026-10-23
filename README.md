@@ -84,6 +84,37 @@ Suggested flow:
 - The page carries a `noindex, nofollow` robots meta tag, and `vercel.json` sends the same `X-Robots-Tag` header, so the deployment stays out of search results. `vercel.json` also sends `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and `Referrer-Policy: no-referrer`.
 - The $2,000 and 580% figures in the kill chain are not in the linked BBC article. Check their sources before you quote them.
 
+## Architecture Notes & Concrete Examples
+
+### Punycode Encoding Explained
+Internationalized Domain Names (IDNs) allow domains to contain characters from non-Latin scripts (e.g., Cyrillic, Greek, or Chinese). To make these non-ASCII characters work with the existing DNS infrastructure, they are converted into an ASCII-compatible format called **Punycode**.
+
+When a domain contains non-ASCII characters, it is prefixed with `xn--`. For example, if an attacker registers a lookalike domain using a Cyrillic "а" instead of a Latin "a":
+- **Real domain:** `examplebank.example`
+- **Lookalike domain:** `exаmplebank.example`
+- **Punycode (what the browser connects to):** `xn--exmplebank-0qi.example`
+
+### Sample Confusable Vectors (Homoglyphs)
+The attack relies on homoglyphs—characters from different scripts that look identical (or very similar) but have completely different Unicode values. Below are common examples used in IDN homograph attacks:
+
+| Latin Character | Cyrillic Character | Visual Result |
+| --------------- | ------------------ | ------------- |
+| a (U+0061)      | а (U+0430)         | Identical     |
+| c (U+0063)      | с (U+0441)         | Identical     |
+| e (U+0065)      | е (U+0435)         | Identical     |
+| o (U+006F)      | о (U+043E)         | Identical     |
+| p (U+0070)      | р (U+0440)         | Identical     |
+
+### Defensive Strategies
+Because a homograph phishing link looks visually identical to the real link, user vigilance alone is rarely enough. A defense-in-depth approach is required:
+
+1. **Root Domain Verification:** Always check the rightmost root domain in the address bar.
+2. **Notice `xn--` in the Address Bar:** If you click a familiar-looking link and the address bar changes to an `xn--` URL, the browser's homograph protection is warning you.
+3. **Never Log in or Pay from a Message Link:** Instead, open the app, manually type the URL, or use a trusted bookmark. Any message requesting a wire transfer is almost always a scam.
+4. **Multi-Factor Authentication (MFA):** Use robust MFA solutions like FIDO2 or passkeys. They actively resist credential phishing, meaning a stolen password alone isn't enough to compromise the account.
+5. **Keep Browsers Updated:** Modern browsers (Chrome, Edge, Firefox) have built-in IDN display policies that detect homographs. Staying current keeps these checks working.
+6. **Enterprise Controls:** Security teams should use defensive domain registration, implement DMARC/SPF/DKIM, monitor DNS for newly registered domains (NRDs), and actively scan for brand lookalikes using tools like `dnstwist`.
+
 ## Customize
 
 - **Example brand and domains:** the fictional brand name (Example Bank) appears in the page title, the header, the note under the demo links, and the footer. The real and lookalike domains appear in both demo links (link text and `href`), the address-bar hint, the "Why can't you spot it?" explanation, the "How attackers weaponize it" list, and the checklist. Search `index.html` for `mplebank`, which matches the real domain, the lookalike, and its `xn--` form, replace every occurrence, then recompute the Punycode form. For example, `python3 -c 'print("exаmplebank.example".encode("idna"))'` (the `а` in that string is Cyrillic) prints `b'xn--exmplebank-0qi.example'`. Keep both names under a reserved top-level domain such as `.example` or `.test` (RFC 2606, RFC 6761). A lookalike under a real top-level domain is a name that anyone could register.
