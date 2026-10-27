@@ -86,16 +86,21 @@ Suggested flow:
 
 ## Architecture Notes & Concrete Examples
 
-### Punycode Encoding Explained
-Internationalized Domain Names (IDNs) allow domains to contain characters from non-Latin scripts (e.g., Cyrillic, Greek, or Chinese). To make these non-ASCII characters work with the existing DNS infrastructure, they are converted into an ASCII-compatible format called **Punycode**.
+### Punycode Resolution
+Internationalized Domain Names (IDNs) allow domains to contain characters from non-Latin scripts (e.g., Cyrillic, Greek, or Chinese). To make these non-ASCII characters work with the existing DNS infrastructure, they are converted into an ASCII-compatible format called **Punycode**. This resolution process is governed by the **IDNA2008** standard, which defines how Unicode strings are prepared and mapped to ASCII using the **ToASCII** conversion process.
 
-When a domain contains non-ASCII characters, it is prefixed with `xn--`. For example, if an attacker registers a lookalike domain using a Cyrillic "а" instead of a Latin "a":
+When a domain contains non-ASCII characters, the ToASCII conversion outputs a string prefixed with `xn--`. For example, if an attacker registers a lookalike domain using a Cyrillic "а" instead of a Latin "a":
 - **Real domain:** `examplebank.example`
 - **Lookalike domain:** `exаmplebank.example`
 - **Punycode (what the browser connects to):** `xn--exmplebank-0qi.example`
 
-### Sample Confusable Vectors (Homoglyphs)
-The attack relies on homoglyphs—characters from different scripts that look identical (or very similar) but have completely different Unicode values. Below are common examples used in IDN homograph attacks:
+### Unicode Homoglyph Confusion Categories
+The attack relies on homoglyphs—characters from different scripts that look identical (or very similar) but have completely different Unicode values. The Unicode Consortium categorizes these into three main types of confusables:
+- **Whole-Script Confusables:** A domain entirely in one script (e.g., Cyrillic) that looks identical to a domain in another script (e.g., Latin). Examples include `epic.com` registered completely with Cyrillic characters.
+- **Mixed-Script Confusables:** A domain that mixes characters from different scripts (e.g., replacing one Latin 'a' with a Cyrillic 'а'). This is the most common technique used in highly targeted phishing, like in this demo.
+- **Same-Script Confusables:** Characters within the same script that look similar (e.g., Latin 'l' and '1', or 'O' and '0').
+
+Below are common examples of Mixed-Script confusables used in IDN homograph attacks:
 
 | Latin Character | Cyrillic Character | Visual Result |
 | --------------- | ------------------ | ------------- |
@@ -104,6 +109,13 @@ The attack relies on homoglyphs—characters from different scripts that look id
 | e (U+0065)      | е (U+0435)         | Identical     |
 | o (U+006F)      | о (U+043E)         | Identical     |
 | p (U+0070)      | р (U+0440)         | Identical     |
+
+### Browser Display Defenses
+Modern browsers (Chrome, Firefox, Safari, Edge) use complex **IDN display algorithms** to determine whether to display the Unicode characters or the raw `xn--` Punycode in the address bar. Their goal is to mitigate homograph attacks by falling back to Punycode when a domain looks suspicious.
+
+Key defensive checks include:
+- **Allowed Script Lists:** Browsers only display Unicode for scripts considered "safe" or relevant to the user's locale.
+- **Script Mixing Checks:** Browsers strictly regulate or outright block domains that mix scripts in ways not naturally found in human languages (e.g., mixing Cyrillic and Latin in the same domain label). If prohibited mixing is detected, the browser forces the display of the `xn--` Punycode, exposing the deception to the user.
 
 ### Defensive Strategies
 Because a homograph phishing link looks visually identical to the real link, user vigilance alone is rarely enough. A defense-in-depth approach is required:
