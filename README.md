@@ -127,6 +127,52 @@ Because a homograph phishing link looks visually identical to the real link, use
 5. **Keep Browsers Updated:** Modern browsers (Chrome, Edge, Firefox) have built-in IDN display policies that detect homographs. Staying current keeps these checks working.
 6. **Enterprise Controls:** Security teams should use defensive domain registration, implement DMARC/SPF/DKIM, monitor DNS for newly registered domains (NRDs), and actively scan for brand lookalikes using tools like `dnstwist`.
 
+## Core Modules & API Reference
+
+### `site/flow.js`
+This module renders the flow diagrams found on the project page. It reads each `figure.fd`, draws an `aria-hidden` SVG schematic above its legend, and cycles one status line at a time. It exposes a global `TedFlow` object when loaded in the browser.
+
+#### API
+*   **`TedFlow.render(figureElement)`**: Renders a single `<figure class="fd">` element. It parses the `data-fd` attribute (a JSON spec) and child DOM nodes to generate and inject the SVG diagram.
+*   **`TedFlow.renderAll(scopeElement)`**: Finds all `<figure class="fd">` elements within the given `scopeElement` (defaults to `document`) and calls `TedFlow.render` on each.
+
+#### Usage Example
+```html
+<figure class="fd" data-fd='{"columns":[[0,1],[2],[3]],"core":2}'>
+  <!-- ... legend and zones ... -->
+</figure>
+<script src="site/flow.js"></script>
+<script>
+  // Automatic rendering is usually handled on DOMContentLoaded,
+  // but you can trigger it manually for dynamic content:
+  TedFlow.renderAll(document);
+</script>
+```
+
+### `site/app.js`
+This script handles the interactive elements of the static site, primarily the bilingual toggle and navigation menu.
+
+*   **Language Toggle**: Listens for clicks on elements with the `data-language` attribute (e.g., `"en"` or `"zh"`). Updates the `html` tag's `lang` and `data-lang` attributes, page title, meta description, and URL query parameter (`?lang=zh-TW`). It also saves the preference in `localStorage`.
+*   **Navigation Menu**: Manages the open/close state of the `.site-nav` menu via the `.menu-button`.
+*   **Copy to Clipboard**: Attaches event listeners to buttons with a `data-copy` attribute, copying the text of the target element ID to the clipboard.
+*   **Typography Adjustments**: Uses `Intl.Segmenter` (if available) to insert `<wbr>` tags in Chinese headings, preventing awkward line breaks within words.
+
+### `tests/test_idn.py`
+A Python test suite that verifies the core educational claims of the demo.
+
+*   **Test Cases**:
+    *   `test_links_contain_homographs`: Parses `index.html` to ensure both the real link (`examplebank.example`) and the fake homograph link (`exаmplebank.example` using Cyrillic 'а') are present. It then asserts that encoding the fake domain to IDNA correctly yields the expected Punycode (`xn--exmplebank-0qi.example`).
+    *   `test_character_table_accuracy`: Verifies the mapping of the five homograph pairs (a, c, e, o, p) presented in the demo, ensuring the Cyrillic versions encode to the expected Punycode prefixes.
+
+#### Running the Tests
+The test environment requires a few dependencies that must be manually installed (no `requirements.txt` is provided). It also requires Playwright browsers.
+
+```bash
+pip install pytest playwright beautifulsoup4 pillow
+python3 -m playwright install --with-deps chromium
+python3 -m pytest -s tests/
+```
+
 ## Customize
 
 - **Example brand and domains:** the fictional brand name (Example Bank) appears in the page title, the header, the note under the demo links, and the footer. The real and lookalike domains appear in both demo links (link text and `href`), the address-bar hint, the "Why can't you spot it?" explanation, the "How attackers weaponize it" list, and the checklist. Search `index.html` for `mplebank`, which matches the real domain, the lookalike, and its `xn--` form, replace every occurrence, then recompute the Punycode form. For example, `python3 -c 'print("exаmplebank.example".encode("idna"))'` (the `а` in that string is Cyrillic) prints `b'xn--exmplebank-0qi.example'`. Keep both names under a reserved top-level domain such as `.example` or `.test` (RFC 2606, RFC 6761). A lookalike under a real top-level domain is a name that anyone could register.
