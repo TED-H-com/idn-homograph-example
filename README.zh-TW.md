@@ -127,6 +127,52 @@ idn-homograph-example/
 5. **保持瀏覽器更新：** 現代瀏覽器（Chrome, Edge, Firefox）都內建了 IDN 顯示政策來偵測同形字。保持更新才能確保這些檢查機制持續有效。
 6. **企業層級的控管：** 資安團隊應採取防禦性網域註冊、實作 DMARC/SPF/DKIM、監控 DNS 中新註冊的網域（NRDs），並利用 `dnstwist` 等工具主動掃描自家品牌的仿冒網域。
 
+## 核心模組與 API 參考 (Core Modules & API Reference)
+
+### `site/flow.js`
+這個模組負責繪製專案介紹頁面上的流程圖。它會讀取每一個 `figure.fd`，在其圖例 (legend) 上方繪製一個 `aria-hidden` 的 SVG 示意圖，並逐行循環顯示狀態列。當在瀏覽器中載入時，它會暴露一個全域的 `TedFlow` 物件。
+
+#### API
+*   **`TedFlow.render(figureElement)`**: 渲染單一 `<figure class="fd">` 元素。它解析 `data-fd` 屬性（一個 JSON 規格）與子 DOM 節點，以產生並注入 SVG 示意圖。
+*   **`TedFlow.renderAll(scopeElement)`**: 尋找給定 `scopeElement` (預設為 `document`) 內的所有 `<figure class="fd">` 元素，並對每一個元素呼叫 `TedFlow.render`。
+
+#### 使用範例
+```html
+<figure class="fd" data-fd='{"columns":[[0,1],[2],[3]],"core":2}'>
+  <!-- ... 圖例與區域 (legend and zones) ... -->
+</figure>
+<script src="site/flow.js"></script>
+<script>
+  // 自動渲染通常在 DOMContentLoaded 時處理，
+  // 但你可以為動態內容手動觸發它：
+  TedFlow.renderAll(document);
+</script>
+```
+
+### `site/app.js`
+這個腳本處理靜態網站的互動元素，主要是雙語切換與導覽選單。
+
+*   **語言切換 (Language Toggle)**: 監聽帶有 `data-language` 屬性（例如 `"en"` 或 `"zh"`）的元素點擊。更新 `html` 標籤的 `lang` 與 `data-lang` 屬性、頁面標題 (title)、meta 描述 (description) 與 URL 查詢參數 (`?lang=zh-TW`)。它也會將偏好設定儲存在 `localStorage` 中。
+*   **導覽選單 (Navigation Menu)**: 透過 `.menu-button` 管理 `.site-nav` 選單的開啟/關閉狀態。
+*   **複製到剪貼簿 (Copy to Clipboard)**: 為帶有 `data-copy` 屬性的按鈕加上事件監聽器，將目標元素 ID 的文字複製到剪貼簿。
+*   **排版調整 (Typography Adjustments)**: 使用 `Intl.Segmenter` (如果可用) 在中文標題中插入 `<wbr>` 標籤，防止文字在單字中間出現尷尬的斷行。
+
+### `tests/test_idn.py`
+驗證此 demo 核心教育主張的 Python 測試套件。
+
+*   **測試案例 (Test Cases)**:
+    *   `test_links_contain_homographs`: 解析 `index.html` 以確保真正的連結 (`examplebank.example`) 與假的同形異義字連結 (使用西里爾字母 'а' 的 `exаmplebank.example`) 皆存在。接著斷言將假網域編碼為 IDNA 會正確產生預期的 Punycode (`xn--exmplebank-0qi.example`)。
+    *   `test_character_table_accuracy`: 驗證 demo 中呈現的五組同形異義字 (a, c, e, o, p) 的映射，確保西里爾字母版本能編碼成預期的 Punycode 前綴。
+
+#### 執行測試
+測試環境需要手動安裝一些相依套件 (沒有提供 `requirements.txt`)。它也需要 Playwright 瀏覽器。
+
+```bash
+pip install pytest playwright beautifulsoup4 pillow
+python3 -m playwright install --with-deps chromium
+python3 -m pytest -s tests/
+```
+
 ## 自訂
 
 - **範例品牌與網域：** 虛構品牌名稱（Example Bank）出現在頁面標題、頁首、demo 連結下方的說明和頁尾。正牌網域和仿冒網域則寫死在兩個 demo 連結（連結文字與 `href`）、網址列提示、「為什麼肉眼看不出來？」的說明、「攻擊者實際怎麼用」清單和防禦清單裡。在 `index.html` 裡搜尋 `mplebank`（正牌網域、仿冒網域和它的 `xn--` 形式都找得到），全部替換之後，再重新計算 Punycode。例如 `python3 -c 'print("exаmplebank.example".encode("idna"))'`（字串裡的 `а` 是西里爾字母）會印出 `b'xn--exmplebank-0qi.example'`。兩個網域都請放在 `.example` 或 `.test` 這類保留的頂級網域底下（RFC 2606、RFC 6761）。放在真實頂級網域底下的仿冒網域，任何人都能註冊。
