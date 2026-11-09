@@ -156,3 +156,79 @@ def test_flow_diagram_rendering(page: Page, http_server: str):
 
     # Check that wire paths are generated inside the svg
     expect(svg.locator("path.fd-wire")).to_be_attached()
+
+def test_site_lang_from_url_param(page: Page, http_server: str):
+    """Test language preference from URL parameter."""
+    # Test zh-TW
+    page.goto(f"{http_server}/site/index.html?lang=zh-TW")
+    expect(page.locator("html")).to_have_attribute("lang", "zh-Hant")
+    expect(page.locator("html")).to_have_attribute("data-lang", "zh")
+
+    # Test en
+    page.goto(f"{http_server}/site/index.html?lang=en")
+    expect(page.locator("html")).to_have_attribute("lang", "en")
+    expect(page.locator("html")).to_have_attribute("data-lang", "en")
+
+def test_site_lang_from_localstorage(browser, http_server: str):
+    """Test language preference from localStorage."""
+    context = browser.new_context()
+    page = context.new_page()
+
+    # Pre-set localStorage to 'zh'
+    page.goto(f"{http_server}/site/index.html")
+    page.evaluate("window.localStorage.setItem('tedh-project-lang', 'zh')")
+
+    # Reload and check
+    page.goto(f"{http_server}/site/index.html")
+    expect(page.locator("html")).to_have_attribute("lang", "zh-Hant")
+    expect(page.locator("html")).to_have_attribute("data-lang", "zh")
+
+    context.close()
+
+def test_site_segmenter_wbr_insertion(page: Page, http_server: str):
+    """Test that wbr elements are inserted for Chinese headers if Intl.Segmenter is supported."""
+    page.goto(f"{http_server}/site/index.html?lang=zh-TW")
+
+    # Check if browser supports Intl.Segmenter
+    supports_segmenter = page.evaluate("!!(window.Intl && Intl.Segmenter)")
+
+    if supports_segmenter:
+        # Check if a wbr tag was inserted inside a Chinese header
+        wbr_count = page.evaluate("document.querySelectorAll('h1[lang^=\"zh\"] wbr, h2[lang^=\"zh\"] wbr, h1 [lang^=\"zh\"] wbr, h2 [lang^=\"zh\"] wbr').length")
+        assert wbr_count > 0, "Expected <wbr> tags to be inserted in Chinese text."
+
+def test_site_data_year_update(page: Page, http_server: str):
+    """Test that elements with data-year are updated to the current year."""
+    page.goto(f"{http_server}/site/index.html")
+
+    import datetime
+    current_year = str(datetime.datetime.now().year)
+
+    # Find all elements with data-year and verify their text content
+    year_elements = page.locator("[data-year]")
+    count = year_elements.count()
+
+    for i in range(count):
+        assert year_elements.nth(i).inner_text() == current_year
+
+def test_invalid_copy_target(http_server: str, browser):
+    """Test copy behavior when target doesn't exist by modifying an existing button."""
+    context = browser.new_context(permissions=["clipboard-read", "clipboard-write"])
+    page = context.new_page()
+    page.goto(f"{http_server}/site/index.html")
+
+    # Use the first copy button available
+    copy_button = page.locator("button[data-copy]").first
+
+    # Modify the target of the real button before clicking it
+    page.evaluate("document.querySelector('button[data-copy]').setAttribute('data-copy', 'non-existent-id')")
+
+    # Click it, should not throw or change class since target doesn't exist
+    copy_button.click()
+
+    # Let any potential async operations complete
+    page.wait_for_timeout(500)
+
+    expect(copy_button).not_to_have_class("is-done")
+
+    context.close()
