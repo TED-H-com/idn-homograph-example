@@ -67,5 +67,15 @@ class TestIDNHomograph(unittest.TestCase):
             encoded = cyrillic.encode('idna').decode('ascii')
             self.assertEqual(encoded, expected_punycode)
 
+
+    def test_site_punycode_mentions(self):
+        """Test that site/index.html mentions the IDN and ASCII strings."""
+        site_index_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'site', 'index.html')
+        with open(site_index_path, 'r', encoding='utf-8') as f:
+            site_content = f.read()
+
+        self.assertIn('xn--exmplebank-0qi', site_content)
+        self.assertIn('examplebank', site_content)
+
 if __name__ == '__main__':
     unittest.main()

@@ -232,3 +232,72 @@ def test_invalid_copy_target(http_server: str, browser):
     expect(copy_button).not_to_have_class("is-done")
 
     context.close()
+
+def test_language_toggle_click_non_button(page: Page, http_server: str):
+    """Test clicking the language toggle wrapper doesn't fail."""
+    page.goto(f"{http_server}/site/index.html")
+    expect(page.locator("html")).to_have_attribute("lang", "en")
+    page.locator(".language-switch").click(force=True, position={"x": 1, "y": 1})
+    expect(page.locator("html")).to_have_attribute("lang", "en")
+
+def test_site_lang_from_browser_locale_zh(browser, http_server: str):
+    """Test language defaults to zh based on browser locale."""
+    context = browser.new_context(locale="zh-TW")
+    page = context.new_page()
+    page.goto(f"{http_server}/site/index.html")
+    expect(page.locator("html")).to_have_attribute("lang", "zh-Hant")
+    expect(page.locator("html")).to_have_attribute("data-lang", "zh")
+    context.close()
+
+def test_site_lang_from_browser_locale_en(browser, http_server: str):
+    """Test language defaults to en based on browser locale."""
+    context = browser.new_context(locale="en-US")
+    page = context.new_page()
+    page.goto(f"{http_server}/site/index.html")
+    expect(page.locator("html")).to_have_attribute("lang", "en")
+    expect(page.locator("html")).to_have_attribute("data-lang", "en")
+    context.close()
+
+def test_copy_button_status_reset(http_server: str, browser):
+    """Test copy button reset after 1.6s timeout."""
+    context = browser.new_context(permissions=["clipboard-read", "clipboard-write"])
+    page = context.new_page()
+    page.goto(f"{http_server}/site/index.html")
+    copy_button = page.locator("button[data-copy='code-1']")
+    copy_button.click()
+    expect(copy_button).to_have_class("copy is-done")
+    page.wait_for_timeout(2000)
+    expect(copy_button).not_to_have_class("copy is-done")
+    expect(copy_button).to_have_class("copy")
+    context.close()
+
+def test_mobile_navigation_escape_focus(page: Page, http_server: str):
+    """Test mobile navigation escape key focus behavior."""
+    page.set_viewport_size({"width": 800, "height": 600})
+    page.goto(f"{http_server}/site/index.html")
+    menu_button = page.locator(".menu-button")
+    site_nav = page.locator(".site-nav")
+    menu_button.click()
+    expect(site_nav).to_have_class("site-nav is-open")
+    page.keyboard.press("Escape")
+    expect(site_nav).not_to_have_class("site-nav is-open")
+    expect(menu_button).to_be_focused()
+
+def test_flow_diagram_frozen(page: Page, http_server: str):
+    """Test flow diagram url parameter."""
+    import re
+    page.goto(f"{http_server}/site/index.html?fd-at=1")
+    first_figure = page.locator("figure.fd").first
+    expect(first_figure).to_have_class(re.compile(r"is-paused"))
+
+def test_flow_diagram_intersection_observer(page: Page, http_server: str):
+    """Test flow diagram intersection observer."""
+    import re
+    page.set_viewport_size({"width": 800, "height": 600})
+    page.goto(f"{http_server}/site/index.html")
+    first_figure = page.locator("figure.fd").first
+    first_figure.scroll_into_view_if_needed()
+    expect(first_figure).not_to_have_class(re.compile(r"is-paused"))
+    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+    page.wait_for_timeout(500)
+    expect(first_figure).to_have_class(re.compile(r"is-paused"))
