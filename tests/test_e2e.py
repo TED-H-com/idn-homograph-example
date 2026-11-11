@@ -1,3 +1,4 @@
+import re
 import pytest
 import threading
 import http.server
@@ -232,3 +233,179 @@ def test_invalid_copy_target(http_server: str, browser):
     expect(copy_button).not_to_have_class("is-done")
 
     context.close()
+
+def test_language_toggle_title_meta(page: Page, http_server: str):
+    """Test title and meta description updates on language toggle."""
+    page.goto(f"{http_server}/site/index.html")
+
+    # Initial state (en)
+    expect(page).to_have_title("idn-homograph-example · An IDN homograph attack awareness demo")
+    meta_desc = page.locator('meta[name="description"]')
+    expect(meta_desc).to_have_attribute("content", "A single-page, bilingual demo that shows how a Cyrillic letter can pass for a Latin one in a link, what the browser really opens, and how to defend against it.")
+
+    # Switch to zh
+    page.click("button[data-language='zh']")
+    expect(page).to_have_title("idn-homograph-example · IDN 同形異義字攻擊的教學 demo")
+    expect(meta_desc).to_have_attribute("content", "單頁、中英雙語的教學 demo：示範一個西里爾字母如何在連結裡冒充拉丁字母、瀏覽器實際連到哪裡，以及該怎麼防。")
+
+    # Switch back to en
+    page.click("button[data-language='en']")
+    expect(page).to_have_title("idn-homograph-example · An IDN homograph attack awareness demo")
+    expect(meta_desc).to_have_attribute("content", "A single-page, bilingual demo that shows how a Cyrillic letter can pass for a Latin one in a link, what the browser really opens, and how to defend against it.")
+
+
+def test_language_toggle_removes_url_param_for_en(page: Page, http_server: str):
+    """Test language toggle removes the URL parameter when switching to 'en'."""
+    page.goto(f"{http_server}/site/index.html?lang=zh-TW")
+    expect(page).to_have_url(f"{http_server}/site/index.html?lang=zh-TW")
+
+    page.click("button[data-language='en']")
+    expect(page).to_have_url(f"{http_server}/site/index.html")
+
+
+def test_escape_key_behavior_navigation(page: Page, http_server: str):
+    """Test escape key behavior for the navigation menu."""
+    page.set_viewport_size({"width": 800, "height": 600})
+    page.goto(f"{http_server}/site/index.html")
+
+    menu_button = page.locator(".menu-button")
+    site_nav = page.locator(".site-nav")
+
+    # Open menu
+    menu_button.click()
+    expect(site_nav).to_have_class("site-nav is-open")
+
+    # Press Escape to close it
+    page.keyboard.press("Escape")
+    expect(site_nav).to_have_class("site-nav")
+    expect(menu_button).to_be_focused()
+
+    # Press Escape again when already closed (should do nothing)
+    page.keyboard.press("Escape")
+    expect(site_nav).to_have_class("site-nav")
+
+
+def test_missing_intl_segmenter(page: Page, http_server: str):
+    """Simulate environments lacking Intl.Segmenter."""
+    # We can override Intl.Segmenter before the page loads
+    page.add_init_script("delete window.Intl.Segmenter;")
+    page.goto(f"{http_server}/site/index.html?lang=zh-TW")
+
+    # The script should not throw an error and the page should still function
+    # Check if the title was set correctly to verify JS didn't crash before that point
+    expect(page).to_have_title("idn-homograph-example · IDN 同形異義字攻擊的教學 demo")
+
+    # And we shouldn't find any <wbr> tags inserted by the polyfill logic
+    wbr_count = page.evaluate("document.querySelectorAll('wbr').length")
+    assert wbr_count == 0
+
+
+def test_lang_browser_locale_fallback(browser, http_server: str):
+    """Test browser locale fallback in site/lang.js."""
+    # Launch browser with specific locale
+    context = browser.new_context(locale="zh-CN")
+    page = context.new_page()
+    page.goto(f"{http_server}/site/index.html")
+
+    # Should default to zh based on browser locale
+    expect(page.locator("html")).to_have_attribute("lang", "zh-Hant")
+    expect(page.locator("html")).to_have_attribute("data-lang", "zh")
+
+    context.close()
+
+    # Now test with non-zh locale
+    context = browser.new_context(locale="fr-FR")
+    page = context.new_page()
+    page.goto(f"{http_server}/site/index.html")
+
+    # Should default to en based on fallback logic in lang.js
+    expect(page.locator("html")).to_have_attribute("lang", "en")
+    expect(page.locator("html")).to_have_attribute("data-lang", "en")
+    context.close()
+
+def test_lang_invalid_url_parameter(page: Page, http_server: str):
+    """Test handling of invalid lang values in URL parameter."""
+    page.goto(f"{http_server}/site/index.html?lang=invalid")
+
+    # Should fallback to browser language (en by default in tests)
+    expect(page.locator("html")).to_have_attribute("lang", "en")
+    expect(page.locator("html")).to_have_attribute("data-lang", "en")
+
+
+def test_flow_diagram_missing_data_fd(page: Page, http_server: str):
+    """Test that flow diagrams without data-fd handle missing gracefully."""
+    page.goto(f"{http_server}/site/index.html")
+
+    # Let's inject a broken figure
+    page.evaluate('''
+        const fig = document.createElement("figure");
+        fig.className = "fd";
+        // No data-fd attribute
+        document.body.appendChild(fig);
+        // And manually trigger render
+        TedFlow.render(fig);
+    ''')
+
+    # Ensure it wasn't marked as drawn because data-fd was missing
+    is_drawn = page.evaluate('document.querySelector("figure.fd:not([data-fd])").classList.contains("is-drawn")')
+    assert not is_drawn
+
+def test_flow_diagram_malformed_data_fd(page: Page, http_server: str):
+    """Test that flow diagrams with malformed data-fd handle gracefully."""
+    page.goto(f"{http_server}/site/index.html")
+
+    # Inject a malformed figure
+    page.evaluate('''
+        const fig = document.createElement("figure");
+        fig.className = "fd";
+        fig.setAttribute("data-fd", "{ invalid json }");
+        document.body.appendChild(fig);
+        TedFlow.render(fig);
+    ''')
+
+    is_drawn = page.evaluate('document.querySelector("figure.fd[data-fd=\\"{ invalid json }\\"]").classList.contains("is-drawn")')
+    assert not is_drawn
+
+def test_flow_diagram_frozen_at(page: Page, http_server: str):
+    """Test fd-at URL parameter pauses animations."""
+    page.goto(f"{http_server}/site/index.html?fd-at=2")
+
+    # Ensure a diagram has the is-paused class when fd-at is specified
+    first_figure = page.locator("figure.fd").first
+    expect(first_figure).to_have_class(re.compile(r"is-paused"))
+
+def test_flow_diagram_reduced_motion(browser, http_server: str):
+    """Test prefers-reduced-motion applies is-static."""
+    # Launch browser with reduced motion preference
+    context = browser.new_context(color_scheme="dark") # not specifically motion but playwright can't set motion directly in new_context
+    page = context.new_page()
+    page.emulate_media(reduced_motion="reduce")
+
+    page.goto(f"{http_server}/site/index.html")
+
+    first_figure = page.locator("figure.fd").first
+    expect(first_figure).to_have_class(re.compile(r"is-static"))
+    context.close()
+
+def test_flow_diagram_intersection_observer(page: Page, http_server: str):
+    """Test intersection observer toggles is-paused class."""
+    page.set_viewport_size({"width": 800, "height": 600})
+    page.goto(f"{http_server}/site/index.html")
+
+    first_figure = page.locator("figure.fd").first
+    first_figure.scroll_into_view_if_needed()
+
+    # Wait for IO to kick in (should be visible, not paused)
+    expect(first_figure).not_to_have_class(re.compile(r"is-paused"))
+
+    # Scroll to the bottom so it's out of view
+    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+
+    # Wait for the observer to mark it as paused
+    expect(first_figure).to_have_class(re.compile(r"is-paused"))
+
+    # Scroll back into view
+    first_figure.scroll_into_view_if_needed()
+
+    # Wait for it to become unpaused
+    expect(first_figure).not_to_have_class(re.compile(r"is-paused"))
