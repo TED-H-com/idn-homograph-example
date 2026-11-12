@@ -164,6 +164,7 @@
     border: 1px solid var(--accent);
     border-radius: 100px;
     animation: pulse 2s ease-in-out infinite;
+    will-change: opacity;
   }
 
   .eyebrow::before {
@@ -271,6 +272,7 @@
     border: 1px solid var(--border);
     border-radius: 12px;
     transition: all 0.3s;
+    will-change: transform, border-color;
   }
 
   .link-card:hover {
@@ -602,6 +604,8 @@
   body.en .lang-zh { display: none; }
   body.en .lang-en { display: block; }
   body.en .lang-en.inline { display: inline; }
+  /* Prevent layout thrashing during transition */
+  body.en .lang-en, body:not(.en) .lang-zh { content-visibility: auto; contain: layout style; }
 
   /* ── Responsive ─────────────────────────────── */
   @media (max-width: 640px) {
@@ -615,11 +619,11 @@
   }
 
   /* ── Entrance animations ─────────────────────────────── */
-  .hero > * { animation: rise 0.8s ease-out backwards; }
+  .hero > * { animation: rise 0.8s ease-out backwards; will-change: opacity, transform; }
   .hero > *:nth-child(1) { animation-delay: 0.05s; }
   .hero > *:nth-child(2) { animation-delay: 0.15s; }
   .hero > *:nth-child(3) { animation-delay: 0.25s; }
-  .demo { animation: rise 0.8s ease-out 0.35s backwards; }
+  .demo { animation: rise 0.8s ease-out 0.35s backwards; will-change: opacity, transform; }
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(20px); }
@@ -1042,13 +1046,14 @@
   const toggle = document.getElementById("langToggle");
   const body = document.body;
   const htmlEl = document.documentElement;
+  const buttons = toggle.querySelectorAll("button");
 
   toggle.addEventListener("click", (e) => {
     const btn = e.target.closest("button");
     if (!btn) return;
     const lang = btn.dataset.lang;
 
-    toggle.querySelectorAll("button").forEach(b => b.classList.toggle("active", b === btn));
+    buttons.forEach(b => b.classList.toggle("active", b === btn));
 
     if (lang === "en") {
       body.classList.add("en");
